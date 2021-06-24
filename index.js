@@ -1,32 +1,28 @@
-var express = require("express");
-var app = express();
-app.use(express.static("public"));
-app.set("view engine", "ejs");
-app.set("views", "./views");
-
-var server = require("http").Server(app);
-var io = require("socket.io")(server);
-server.listen(process.env.PORT || 3000);
-
-var mang = [];
-
-io.on("connection", function (socket) {
-  console.log("User connect server " + socket.id);
-  socket.on("hocvien-gui-thongtin", function (data) {
-    mang.push(new HocVien(data.hovaten, data.email, data.dienthoai));
-    console.log(data.hovaten);
-    console.log(data.email);
-    console.log(data.dienthoai);
-    io.sockets.emit("server-gui-ds", mang);
+const app = require("express")();
+const http = require("http").createServer(app);
+const io = require("socket.io")(http);
+app.get("/", (req, res) => {
+  res.send("Node Server is running. Yay!!");
+});
+io.on("connection", (socket) => {
+  //Get the chatID of the user and join in a room of the same chatID
+  chatID = socket.handshake.query.chatID;
+  socket.join(chatID);
+  //Leave the room if the user closes the socket
+  socket.on("disconnect", () => {
+    socket.leave(chatID);
+  });
+  //Send message to only a particular user
+  socket.on("send_message", (message) => {
+    receiverChatID = message.receiverChatID;
+    senderChatID = message.senderChatID;
+    content = message.content;
+    //Send message to only that particular room
+    socket.in(receiverChatID).emit("receive_message", {
+      content: content,
+      senderChatID: senderChatID,
+      receiverChatID: receiverChatID,
+    });
   });
 });
-
-function HocVien(hovaten, email, dienthoai) {
-  this.HOVATEN = hovaten;
-  this.EMAIL = email;
-  this.DIENTHOAI = dienthoai;
-}
-
-app.get("/", function (req, res) {
-  res.render("trangchu");
-});
+http.listen(process.env.PORT);
